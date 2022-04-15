@@ -4,8 +4,8 @@
 #include "user_button.h"
 /* 线程控制块 */
 // u8g2_ctrl_thread // Static thread btn ctrl oled method
-static rt_thread_t oled_dynamic = RT_NULL;
-static rt_thread_t oled_static = RT_NULL;
+static rt_thread_t oled_dynamic_t = RT_NULL;
+static rt_thread_t oled_static_t = RT_NULL;
 // static rt_thread_t oled_text = RT_NULL; // l168 changetostatic
 // static rt_thread_t btn_t = RT_NULL; // Static thread -scan btn
 /* 邮箱 */
@@ -44,13 +44,13 @@ Button_t u8g2_Button;
 void Btn1_Dowm_CallBack(void *btn) // 对外接口
 {
   led_off();
-  // rt_kprintf("KEY1 Click!");
+  // rt_kprintf("Click!");
   rt_mb_send(&btn_oled_mbt, (rt_uint32_t)&mb_once);
 }
 void Btn1_Double_CallBack(void *btn) // 对外接口
 {
   led_on();
-  // rt_kprintf("KEY1 Double click!");
+  // rt_kprintf("Double click!");
   rt_mb_send(&btn_oled_mbt, (rt_uint32_t)&mb_doub);
 }
 /* #endregion */
@@ -76,8 +76,6 @@ static rt_mutex_t oled_mutex = RT_NULL;
 // TODO OLED 实现多个字显示
 static void u8g2_d_thread(void *parameter)
 {
-  u8g2.begin();
-
   u8g2.setFont(u8g2_font_inb30_mr); // set the target font to calculate the pixel width
   width = u8g2.getUTF8Width(text);  // calculate the pixel width of the text, 字体大小
 
@@ -114,7 +112,14 @@ static void u8g2_d_thread(void *parameter)
     rt_thread_mdelay(10); // do some small delay
   }
 }
-
+static void u8g2_s_thread(void *parameter)
+{
+  while (1)
+  {
+    //TODO 静态设置
+    rt_thread_mdelay(1000);
+  }
+}
 ALIGN(RT_ALIGN_SIZE)
 static char u8g2_ctrl_stack[1024];
 static struct rt_thread u8g2_ctrl_thread;
@@ -127,42 +132,55 @@ static void btn_ctrl_entry(void *parameter)
     {
       if (str == mb_once) // 按下一次 滚动,创建线程
       {
-        if (oled_show == RT_NULL) //
+        // 非动态进程运行
+        if (oled_dynamic_t == RT_NULL) //动态进程不存在
         {
+          if (oled_static_t != RT_NULL) //且运行着静态线程
+          {
+            rt_thread_delete(oled_static_t);
+            oled_static_t = RT_NULL;
+          }
           // TODO 避免重复刷新
-          oled_show = rt_thread_create("oled_show",
-                                       u8g2_d_thread, RT_NULL,
-                                       THREAD_STACK_SIZE,
-                                       THREAD_PRIORITY - 3, THREAD_TIMESLICE);
+          oled_dynamic_t = rt_thread_create("dynamic_show",
+                                            u8g2_d_thread, RT_NULL,
+                                            THREAD_STACK_SIZE,
+                                            THREAD_PRIORITY - 3, THREAD_TIMESLICE);
 
           /* 如果获得线程控制块，启动这个线程 */
-          if (oled_show != RT_NULL)
-            rt_thread_startup(oled_show);
+          if (oled_dynamic_t != RT_NULL)
+            rt_thread_startup(oled_dynamic_t);
         }
+        else
+          ;
       }
       else if (str == mb_doub) // 按下两次静止，关闭线程，运行一次
       {
-        // 检测是否存在这个线程
-        if (oled_show != RT_NULL) // 如果存在
+        // 非静态进程运行
+        if (oled_static_t == RT_NULL) //静态进程不存在
         {
-          rt_thread_delete(oled_show);
-          oled_show = RT_NULL;
-          // TODO 静态显示东西
-          oled_show = rt_thread_create("oled_static",
-                                       u8g2_d_thread, RT_NULL,
-                                       THREAD_STACK_SIZE,
-                                       THREAD_PRIORITY - 3, THREAD_TIMESLICE);
+          if (oled_dynamic_t != RT_NULL) //且运行动态这个线程可有可无
+          {
+            rt_thread_delete(oled_dynamic_t);
+            oled_dynamic_t = RT_NULL;
+          }
+          oled_static_t = rt_thread_create("static_show",
+                                           u8g2_s_thread, RT_NULL,
+                                           THREAD_STACK_SIZE,
+                                           THREAD_PRIORITY - 3, THREAD_TIMESLICE);
 
           /* 如果获得线程控制块，启动这个线程 */
-          if (oled_show != RT_NULL)
-            rt_thread_startup(oled_show);
+          if (oled_static_t != RT_NULL)
+            rt_thread_startup(oled_static_t);
         }
+        else
+          ;
       }
-
-      rt_thread_mdelay(100);
     }
+
+    rt_thread_mdelay(100);
   }
 }
+
 ALIGN(RT_ALIGN_SIZE)
 static char u8g2_txt_stack[256];
 static struct rt_thread oled_text;
@@ -173,6 +191,7 @@ static void u8g2_get_txt(void *parameter)
   {
     if (rt_mb_recv(&ble_mb_oled, (rt_ubase_t *)&text_t, RT_WAITING_FOREVER) == RT_EOK)
     {
+
       rt_kprintf("OLED_info:%s\n", text_t);          // 发送给电脑
       rt_mutex_take(oled_mutex, RT_WAITING_FOREVER); // 获取OLED操控text失败
       rt_strncpy(text, text_t, 1024);                // !!! 中文要大！
@@ -198,7 +217,7 @@ rt_err_t u8g2_thread_init(void)
 
   /* #region  按键控制oled线程 */
   rt_thread_init(&u8g2_ctrl_thread,
-                 "btn_ctrl_u8",
+                 "btn_ctrl",
                  btn_ctrl_entry,
                  RT_NULL,
                  &u8g2_ctrl_stack[0],
@@ -209,7 +228,7 @@ rt_err_t u8g2_thread_init(void)
   /* #endregion */
 
   /* #region 获取文字的线程 */
- result = rt_thread_init(&oled_text,
+  result = rt_thread_init(&oled_text,
                           "oled_text",
                           u8g2_get_txt,
                           RT_NULL,
@@ -217,23 +236,16 @@ rt_err_t u8g2_thread_init(void)
                           sizeof(u8g2_txt_stack),
                           THREAD_PRIORITY - 4, THREAD_TIMESLICE);
   if (result != RT_NULL)
-    rt_thread_startup(oled_text);
+    rt_thread_startup(&oled_text);
   /* #endregion */
 
-  /* 默认开始为动态OLED的线程 */
-  oled_dynamic = rt_thread_create("dynamic_show",
-                                  u8g2_d_thread, RT_NULL,
-                                  THREAD_STACK_SIZE,
-                                  THREAD_PRIORITY - 3, THREAD_TIMESLICE);
-  if (oled_dynamic != RT_NULL)
-    rt_thread_startup(oled_dynamic);
-
-  oled_static = rt_thread_create("static_show",
-                                 u8g2_d_thread, RT_NULL,
-                                 THREAD_STACK_SIZE,
-                                 THREAD_PRIORITY - 3, THREAD_TIMESLICE);
-  if (oled_static != RT_NULL)
-    rt_thread_startup(oled_static);
+  /* 默认开始为静态OLED的线程 */
+  oled_static_t = rt_thread_create("static_show",
+                                   u8g2_s_thread, RT_NULL,
+                                   THREAD_STACK_SIZE,
+                                   THREAD_PRIORITY - 3, THREAD_TIMESLICE);
+  if (oled_static_t != RT_NULL)
+    rt_thread_startup(oled_static_t);
   return RT_EOK;
 }
 
@@ -264,7 +276,6 @@ static char btn_stack[1024];
 static struct rt_thread btn_thread;
 static void button_entry(void *parameter)
 {
-  BSP_Init();
   Button_Create("KEY1",
                 &u8g2_Button,
                 Read_u8g2b_Level,
@@ -286,7 +297,7 @@ static void button_entry(void *parameter)
 /* #endregion */
 rt_err_t button_u8g2_init(void)
 {
-
+  BSP_Init();
   u8g2_thread_init();
   rt_thread_init(&btn_thread,
                  "btn_scan",
@@ -296,6 +307,7 @@ rt_err_t button_u8g2_init(void)
                  sizeof(btn_stack),
                  THREAD_PRIORITY - 4, THREAD_TIMESLICE);
   rt_thread_startup(&btn_thread);
+  u8g2.begin();
   return RT_EOK;
 }
 // static void oled_time(int argc,char *argv[])

@@ -70,7 +70,7 @@ int main(void)
 
 /* 显示功能 */
 #ifdef Btn_OLED
-    button_u8g2_init(); // ~~~陷入循环：已经修复
+    button_u8g2_init();
 
 #endif
 /* 语音合成功能 */

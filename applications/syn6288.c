@@ -103,7 +103,7 @@ rt_err_t SYN6288_init(void)
         rt_kprintf("线程启动失败\n");
         ret = RT_ERROR;
     }
-    rt_kprintf("成功syn6288\n");
+    // rt_kprintf("成功syn6288\n");
     return ret;
 }
 static void syn6288(int argc,char *argv[])
