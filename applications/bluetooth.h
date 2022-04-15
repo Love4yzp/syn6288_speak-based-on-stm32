@@ -16,8 +16,8 @@
 extern "C" {
 #endif
 #include <rtthread.h>
-#include <rtdevice.h>
-#include <stdlib.h>
+//#include <rtdevice.h>
+//#include <stdlib.h>
 #include "app.h"
 /* 串口接收消息结构*/
 struct rx_msg

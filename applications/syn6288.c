@@ -70,7 +70,7 @@ static void SYN6288_thread_entry(void *parameter) // 对外接口
             rt_sem_take(&syn_rx_sem, RT_WAITING_FOREVER);
         }
        /*  rt_device_write(serial, 0, &ch, 1); */
-// TODO
+
         rt_kprintf("%x ",ch);//发送给电脑
     }
 }
@@ -106,26 +106,26 @@ rt_err_t SYN6288_init(void)
     // rt_kprintf("成功syn6288\n");
     return ret;
 }
-static void syn6288(int argc,char *argv[])
-{
+// static void syn6288(int argc,char *argv[])
+// {
 
-    if(argc>1)
-    {
-        if(argc == 2){
-            if(strcmp(argv[2],"status")) // 状态查询
-            {
-                rt_kprintf("状态查询\n");
-                YS_SYN_Set(SYN_ChackCom,sizeof(SYN_ChackCom));
-            }
-        }else if (argc>2) {
-            for(int i=2;i<argc;i++)
-            {
+//     if(argc>1)
+//     {
+//         if(argc == 2){
+//             if(strcmp(argv[2],"status")) // 状态查询
+//             {
+//                 rt_kprintf("状态查询\n");
+//                 YS_SYN_Set(SYN_ChackCom,sizeof(SYN_ChackCom));
+//             }
+//         }else if (argc>2) {
+//             for(int i=2;i<argc;i++)
+//             {
 
-                SYN_FrameInfo(0,argv[i]);
-            }
-        }
-    }
+//                 SYN_FrameInfo(0,argv[i]);
+//             }
+//         }
+//     }
 
-}
-MSH_CMD_EXPORT(syn6288, SYN2688);
+// }
+// MSH_CMD_EXPORT(syn6288, SYN2688);
 #endif

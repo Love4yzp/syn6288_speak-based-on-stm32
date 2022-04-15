@@ -16,8 +16,8 @@
 #include "syn6288.h"
 #include "gbk2utf8.h"
 // struct rt_semaphore ble_6288_sem; /* 蓝牙接收到数据后，syn6288打断语音 */
-struct rt_mailbox ble_mb_6288;    // 发送给6288
-struct rt_mailbox ble_mb_oled;    // OLED
+struct rt_mailbox ble_mb_6288; // 发送给6288
+struct rt_mailbox ble_mb_oled; // OLED
 
 char mb_pool_6288[128];
 char mb_pool_oled[128];
@@ -53,8 +53,7 @@ rt_err_t mailbox_init(void)
         return -1;
     }
 
-    // /* 初始化静态 1 个信号量  初始值是 0 */
-    // rt_sem_init(&ble_6288_sem, "lock", 0, RT_IPC_FLAG_PRIO);
+
     return RT_EOK;
 }
 
@@ -71,7 +70,6 @@ int main(void)
 /* 显示功能 */
 #ifdef Btn_OLED
     button_u8g2_init();
-
 #endif
 /* 语音合成功能 */
 #ifdef SYN6288
@@ -91,29 +89,18 @@ int main(void)
         char *name = NULL;
         // /* 从邮箱中收取邮件 */
         if (rt_mb_recv(&ble_mb_6288, (rt_ubase_t *)&str, RT_WAITING_FOREVER) == RT_EOK)
-        // {
-        //     // rt_kprintf("thread1: get a mail from mailbox, the content:%s\n", str);
-        //     // if (str == mb_str3)
-        //     //     break;
-
-        //     // 组合 字符串
-        //     /* 发送 str 到 语音 */
+        {
             strcat(head, str); //连接字符串 s2 到字符串 s1 的末尾。
 
-
             utf82gbk(&name, (void *)head, strlen(head));
-            SYN_FrameInfo(0,name);
-            rt_kprintf("蓝牙给8266的信息:%s\n", name);
+            SYN_FrameInfo(0, name);
+            rt_kprintf(" 8266收到:%s\t\n", name);
             rt_free((void *)name);
-        //     /* 延时 100ms */
-        // rt_thread_mdelay(100);
-        // }
+        }
     }
-    /* 执行邮箱对象脱离 */
-#endif
-
     return RT_EOK;
 }
+#endif
 
 /**
  * 状态：成功
@@ -125,9 +112,9 @@ static void ble2oled_test(int argc, char *argv[])
     if (argc == 2)
     {
         rt_strncpy(rx_buffer, argv[1], 1024);
-        if(rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
+        if (rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
         {
-            rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
+            // rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
         }
     }
 }
@@ -144,9 +131,9 @@ static void ble2syn_test(int argc, char *argv[])
     if (argc == 2)
     {
         rt_strncpy(rx_buffer, argv[1], 1024);
-        if(rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer) == RT_EOK)
+        if (rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer) == RT_EOK)
         {
-            rt_kprintf("发给语音邮箱成功\n");
+            // rt_kprintf("发给语音邮箱成功\n");
         }
     }
 }
