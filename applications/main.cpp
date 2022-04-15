@@ -14,14 +14,18 @@
 
 #include "oled.h"
 #include "syn6288.h"
-
-struct rt_semaphore ble_6288_sem; /* 蓝牙接收到数据后，syn6288打断语音 */
+#include "gbk2utf8.h"
+// struct rt_semaphore ble_6288_sem; /* 蓝牙接收到数据后，syn6288打断语音 */
 struct rt_mailbox ble_mb_6288;    // 发送给6288
 struct rt_mailbox ble_mb_oled;    // OLED
 
 char mb_pool_6288[128];
 char mb_pool_oled[128];
 // char mb_str1[] = "this is another mail!";
+/**
+ * @brief 蓝牙到语音的邮箱
+ * @TODO 成功
+ */
 rt_err_t mailbox_init(void)
 {
     rt_err_t result;
@@ -49,8 +53,8 @@ rt_err_t mailbox_init(void)
         return -1;
     }
 
-    /* 初始化静态 1 个信号量  初始值是 0 */
-    rt_sem_init(&ble_6288_sem, "lock", 0, RT_IPC_FLAG_PRIO);
+    // /* 初始化静态 1 个信号量  初始值是 0 */
+    // rt_sem_init(&ble_6288_sem, "lock", 0, RT_IPC_FLAG_PRIO);
     return RT_EOK;
 }
 
@@ -65,28 +69,28 @@ int main(void)
 #endif
 
 /* 显示功能 */
-#ifdef OLED
-    u8g2_init();
+#ifdef Btn_OLED
+    button_u8g2_init(); // ~~~陷入循环：已经修复
 
-#endif
-/* 按键功能 */
-#ifdef Button
-    button_thread_init();
 #endif
 /* 语音合成功能 */
 #ifdef SYN6288
+
     SYN6288_init();
+
     //    SYN_FrameInfo(0,"你好，我的朋友");
 
     // LOG_D("Hello RT-Thread!");
 
     // 接收到蓝牙数据，发送个 6288
-    char *str;
-    char head[] = "[v7][m1][t5]";
+
     while (1)
     {
+        char head[] = "[v3][m2][t3]";
+        char *str;
+        char *name = NULL;
         // /* 从邮箱中收取邮件 */
-        // if (rt_mb_recv(&ble_mb_6288, (rt_ubase_t *)&str, RT_WAITING_FOREVER) == RT_EOK)
+        if (rt_mb_recv(&ble_mb_6288, (rt_ubase_t *)&str, RT_WAITING_FOREVER) == RT_EOK)
         // {
         //     // rt_kprintf("thread1: get a mail from mailbox, the content:%s\n", str);
         //     // if (str == mb_str3)
@@ -94,11 +98,15 @@ int main(void)
 
         //     // 组合 字符串
         //     /* 发送 str 到 语音 */
-        //     strcat(head, str); //连接字符串 s2 到字符串 s1 的末尾。
-        //     YS_SYN_Set(head, sizeof(head) - 1);
-        //     rt_kprintf("蓝牙给8266的信息:%s\n", head);
+            strcat(head, str); //连接字符串 s2 到字符串 s1 的末尾。
+
+
+            utf82gbk(&name, (void *)head, strlen(head));
+            SYN_FrameInfo(0,name);
+            rt_kprintf("蓝牙给8266的信息:%s\n", name);
+            rt_free((void *)name);
         //     /* 延时 100ms */
-        rt_thread_mdelay(100);
+        // rt_thread_mdelay(100);
         // }
     }
     /* 执行邮箱对象脱离 */
@@ -107,6 +115,9 @@ int main(void)
     return RT_EOK;
 }
 
+/**
+ * 状态：成功
+ */
 static void ble2oled_test(int argc, char *argv[])
 {
     char rx_buffer[1024];
@@ -116,13 +127,16 @@ static void ble2oled_test(int argc, char *argv[])
         rt_strncpy(rx_buffer, argv[1], 1024);
         if(rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
         {
-            rt_kprintf("发送邮箱成功\n");
+            // rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
         }
     }
 }
 /* 导出到 msh 命令列表中 */
 MSH_CMD_EXPORT(ble2oled_test, test upload);
 
+/**
+ * 状态 成功
+ */
 static void ble2syn_test(int argc, char *argv[])
 {
     char rx_buffer[1024];
@@ -130,9 +144,9 @@ static void ble2syn_test(int argc, char *argv[])
     if (argc == 2)
     {
         rt_strncpy(rx_buffer, argv[1], 1024);
-        if(rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
+        if(rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer) == RT_EOK)
         {
-            rt_kprintf("发送邮箱成功\n");
+            rt_kprintf("发给语音邮箱成功\n");
         }
     }
 }

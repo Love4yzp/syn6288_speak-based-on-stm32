@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 #include <rtdbg.h>
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -10,7 +11,7 @@ extern "C" {
 #include <rthw.h>
 #include <rtdef.h>
 #include "bluetooth.h"
-#include "user_button.h"
+
 
 /* 信号量 */
 void sem_init(void);

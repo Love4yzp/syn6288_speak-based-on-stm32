@@ -252,7 +252,7 @@ extern "C"
  *
  */
 /*#define BSP_USING_ONCHIP_RTC*/
- #define BSP_USING_ONCHIP_RTC
+// #define BSP_USING_ONCHIP_RTC
 /*-------------------------- RTC CONFIG END --------------------------*/
 
 /*-------------------------- SDIO CONFIG BEGIN --------------------------*/

@@ -5,6 +5,11 @@
   "name": "U8G2_OFFICIAL"
  }, 
  {
+  "path": "/packages/tools/gbk2utf8", 
+  "ver": "latest", 
+  "name": "GBK2UTF8"
+ }, 
+ {
   "path": "/packages/peripherals/button", 
   "ver": "v1.0.1", 
   "name": "BUTTON"

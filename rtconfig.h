@@ -214,6 +214,8 @@
 
 /* tools packages */
 
+#define PKG_USING_GBK2UTF8
+#define PKG_USING_GBK2UTF8_LATEST_VERSION
 /* end of tools packages */
 
 /* system packages */

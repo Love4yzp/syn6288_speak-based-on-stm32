@@ -20,7 +20,11 @@ extern "C" {
 #include <drv_common.h>
 #include <drivers/pin.h>
 #include "app.h"
-void button_thread_init(void);// Include:LED、KEY
+
+#define KEY0 GET_PIN(C, 1)
+#define LED0 GET_PIN(A, 8)
+
+
 #ifdef __cplusplus
 }
 #endif

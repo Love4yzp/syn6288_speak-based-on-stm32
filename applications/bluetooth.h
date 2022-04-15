@@ -10,7 +10,7 @@
 #ifndef APPLICATIONS_BLUETOOTH_H_
 #define APPLICATIONS_BLUETOOTH_H_
     /* BLE 开关 */
-    #define BLE
+    // #define BLE
 #ifdef BLE
 #ifdef __cplusplus
 extern "C" {
@@ -28,8 +28,8 @@ struct rx_msg
 
 rt_err_t bluetooth_init(void);
 void ble_send(char* ble_str);
-    #endif
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif /* APPLICATIONS_BLUETOOTH_H_ */
