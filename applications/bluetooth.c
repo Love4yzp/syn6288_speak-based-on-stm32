@@ -15,7 +15,7 @@
 
 #define BLE_UART_NAME       "uart3"
 static rt_device_t BLE_uart;
-static struct rt_messagequeue rx_mq; // 消息队列
+static struct rt_messagequeue ble_rx_mq; // 消息队列
 struct serial_configure ble_config = RT_SERIAL_CONFIG_DEFAULT;  /* 初始化配置参数 */
 
 
@@ -27,7 +27,7 @@ static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
     msg.dev = dev;
     msg.size = size;
 
-    result = rt_mq_send(&rx_mq, &msg, sizeof(msg)); // 接收到后发送邮箱
+    result = rt_mq_send(&ble_rx_mq, &msg, sizeof(msg)); // 接收到后发送邮箱
     if ( result == -RT_EFULL)
     {
         /* 消息队列满 */
@@ -47,7 +47,7 @@ static void serial_thread_entry(void *parameter)  // 对外接口
     {
         rt_memset(&msg, 0, sizeof(msg));// 清零
         /* 从消息队列中读取消息*/
-        result = rt_mq_recv(&rx_mq, &msg, sizeof(msg), RT_WAITING_FOREVER);
+        result = rt_mq_recv(&ble_rx_mq, &msg, sizeof(msg), RT_WAITING_FOREVER);
         if (result == RT_EOK)
         {
             /* 从串口读取数据*/
@@ -56,9 +56,9 @@ static void serial_thread_entry(void *parameter)  // 对外接口
             /* 通过串口设备 serial 输出读取到的消息 */
             rt_device_write(BLE_uart, 0, rx_buffer, rx_length);//发送给蓝牙
             // /* 打印数据 */
-            // rt_kprintf("%s\n",rx_buffer); // 发送给电脑
+            rt_kprintf("%s\n",rx_buffer); // 发送给电脑
 
-            // 邮箱发送给 OLED,6288
+            // TODO 邮箱发送给 OLED,6288
             rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer);
             rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer);
         }
@@ -79,7 +79,7 @@ rt_err_t bluetooth_init(void)
     }
 
     /* 初始化消息队列 */
-    rt_mq_init(&rx_mq, "blue_rx_mq",
+    rt_mq_init(&ble_rx_mq, "blue_rx_mq",
                msg_pool,                 /* 存放消息的缓冲区 */
                sizeof(struct rx_msg),    /* 一条消息的最大长度 */
                sizeof(msg_pool),         /* 存放消息的缓冲区大小 */

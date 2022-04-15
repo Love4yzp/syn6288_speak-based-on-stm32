@@ -54,7 +54,44 @@ void Btn1_Double_CallBack(void *btn) // 对外接口
   rt_mb_send(&btn_oled_mbt, (rt_uint32_t)&mb_doub);
 }
 /* #endregion */
+static void BSP_Init(void)
+{
+  rt_err_t result;
+  result = rt_mb_init(&btn_oled_mbt,
+                      "btn_mbt",           /* 名称是mbt */
+                      &mb_pool[0],         /* 邮箱用到的内存池是mb_pool */
+                      sizeof(mb_pool) / 4, /* 邮箱中的邮件数目，因为一封邮件占4字节 */
+                      RT_IPC_FLAG_FIFO);   /* 采用FIFO方式进行线程等待 */
+  if (result != RT_EOK)
+  {
+    rt_kprintf("init mailbox failed.\n");
+    // return -1;
+  }
+  led_init();
+  key_init();
+}
+/* #region  按键入口 */
+ALIGN(RT_ALIGN_SIZE)
+static char btn_stack[1024];
+static struct rt_thread btn_thread;
+static void button_entry(void *parameter)
+{
+  Button_Create("KEY1",
+                &u8g2_Button,
+                Read_u8g2b_Level,
+                PIN_LOW);
+  Button_Attach(&u8g2_Button, BUTTON_DOWM, Btn1_Dowm_CallBack);     // Click
+  Button_Attach(&u8g2_Button, BUTTON_DOUBLE, Btn1_Double_CallBack); // Double click
 
+  /* 程序区域 */
+  Get_Button_Event(&u8g2_Button);
+
+  while (1)
+  {
+    Button_Process(); // Need to call the button handler function periodically
+    rt_thread_mdelay(20);
+  }
+}
 /******* OLED ******/
 
 static U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0,
@@ -74,22 +111,22 @@ static rt_mutex_t oled_mutex = RT_NULL;
 
 // TODO OLED 设置只有两个字
 // TODO OLED 实现多个字显示
+// TODO 实现共用坐标
 static void u8g2_d_thread(void *parameter)
 {
-  u8g2.setFont(u8g2_font_inb30_mr); // set the target font to calculate the pixel width
-  width = u8g2.getUTF8Width(text);  // calculate the pixel width of the text, 字体大小
+  // u8g2.setFont(u8g2_font_inb30_mr); // set the target font to calculate the pixel width
 
-  u8g2.setFontMode(0); // enable transparent mode, which is faster, 只要改一个字符就更新，所以快些
+  u8g2.setFont(u8g2_font_unifont_t_chinese3); // set the target font
   while (1)
   {
-    u8g2_uint_t x; // 16bit
-    //    rt_strncpy(text,"请连接蓝牙",128);
+    u8g2_uint_t x;                   // 16bit
+    width = u8g2.getUTF8Width(text); // calculate the pixel width of the text, 获取字体大小, 也就是偏移量
+
     u8g2.firstPage();
     do
     {
       // draw the scrolling text at current offset
       x = offset;
-      u8g2.setFont(u8g2_font_unifont_t_chinese3); // set the target font
       do
       { // repeated drawing of the scrolling text
         rt_mutex_take(oled_mutex, RT_WAITING_FOREVER);
@@ -100,9 +137,9 @@ static void u8g2_d_thread(void *parameter)
         rt_mutex_release(oled_mutex);
       } while (x < u8g2.getDisplayWidth()); // draw again until the complete display is filled
 
-      u8g2.setFont(u8g2_font_inb16_mr); // draw the current pixel width
-      u8g2.setCursor(0, 58);
-      u8g2.print(width); // this value must be lesser than 128 unless U8G2_16BIT is set
+      // u8g2.setFont(u8g2_font_inb16_mr); // draw the current pixel width
+      // u8g2.setCursor(0, 58);
+      // u8g2.print(width); // this value must be lesser than 128 unless U8G2_16BIT is set
     } while (u8g2.nextPage());
 
     offset -= 1; // scroll by one pixel
@@ -114,10 +151,19 @@ static void u8g2_d_thread(void *parameter)
 }
 static void u8g2_s_thread(void *parameter)
 {
+  u8g2.clear();
+  u8g2.setFont(u8g2_font_unifont_t_chinese3);
+
   while (1)
   {
-    //TODO 静态设置
-    rt_thread_mdelay(1000);
+
+    rt_mutex_take(oled_mutex, RT_WAITING_FOREVER);
+
+    u8g2.drawUTF8(0, 30, text); // draw the scolling text
+    u8g2.sendBuffer();
+
+    rt_mutex_release(oled_mutex);
+    rt_thread_mdelay(10000); // do some small delay
   }
 }
 ALIGN(RT_ALIGN_SIZE)
@@ -182,123 +228,44 @@ static void btn_ctrl_entry(void *parameter)
 }
 
 ALIGN(RT_ALIGN_SIZE)
-static char u8g2_txt_stack[256];
-static struct rt_thread oled_text;
+static char txt_stack[1024];
+static struct rt_thread oled_text_thread;
 static void u8g2_get_txt(void *parameter)
 {
   /* 从蓝牙邮箱中收取邮件 */
   while (1)
   {
+    rt_kprintf("等待等待获取文字\n");
     if (rt_mb_recv(&ble_mb_oled, (rt_ubase_t *)&text_t, RT_WAITING_FOREVER) == RT_EOK)
     {
-
       rt_kprintf("OLED_info:%s\n", text_t);          // 发送给电脑
       rt_mutex_take(oled_mutex, RT_WAITING_FOREVER); // 获取OLED操控text失败
-      rt_strncpy(text, text_t, 1024);                // !!! 中文要大！
+      rt_strncpy(text, text_t, 64);                  // !!! 中文要大！
       rt_mutex_release(oled_mutex);
+      rt_thread_mdelay(200);
     }
-  }
-}
-
-/**
- * @brief u8g2 操控text的互斥量
- * @brief 默认创建的两个线程、show、text
- */
-rt_err_t u8g2_thread_init(void)
-{
-
-  rt_err_t result;
-  oled_mutex = rt_mutex_create("oled_mut", RT_IPC_FLAG_PRIO);
-  if (oled_mutex == RT_NULL)
-  {
-    rt_kprintf("create oled mutex failed.\n");
-    return -1;
-  }
-
-  /* #region  按键控制oled线程 */
-  rt_thread_init(&u8g2_ctrl_thread,
-                 "btn_ctrl",
-                 btn_ctrl_entry,
-                 RT_NULL,
-                 &u8g2_ctrl_stack[0],
-                 sizeof(u8g2_ctrl_stack),
-                 THREAD_PRIORITY - 4, THREAD_TIMESLICE);
-  rt_thread_startup(&u8g2_ctrl_thread);
-
-  /* #endregion */
-
-  /* #region 获取文字的线程 */
-  result = rt_thread_init(&oled_text,
-                          "oled_text",
-                          u8g2_get_txt,
-                          RT_NULL,
-                          &u8g2_txt_stack[0],
-                          sizeof(u8g2_txt_stack),
-                          THREAD_PRIORITY - 4, THREAD_TIMESLICE);
-  if (result != RT_NULL)
-    rt_thread_startup(&oled_text);
-  /* #endregion */
-
-  /* 默认开始为静态OLED的线程 */
-  oled_static_t = rt_thread_create("static_show",
-                                   u8g2_s_thread, RT_NULL,
-                                   THREAD_STACK_SIZE,
-                                   THREAD_PRIORITY - 3, THREAD_TIMESLICE);
-  if (oled_static_t != RT_NULL)
-    rt_thread_startup(oled_static_t);
-  return RT_EOK;
-}
-
-/**
- * @brief 按键到OLED的邮箱初始化
- * @brief 按键初始化、LED 初始化
- **/
-static void BSP_Init(void)
-{
-  rt_err_t result;
-  result = rt_mb_init(&btn_oled_mbt,
-                      "btn_mbt",           /* 名称是mbt */
-                      &mb_pool[0],         /* 邮箱用到的内存池是mb_pool */
-                      sizeof(mb_pool) / 4, /* 邮箱中的邮件数目，因为一封邮件占4字节 */
-                      RT_IPC_FLAG_FIFO);   /* 采用FIFO方式进行线程等待 */
-  if (result != RT_EOK)
-  {
-    rt_kprintf("init mailbox failed.\n");
-    // return -1;
-  }
-  led_init();
-  key_init();
-}
-/* #region  按键入口 */
-
-ALIGN(RT_ALIGN_SIZE)
-static char btn_stack[1024];
-static struct rt_thread btn_thread;
-static void button_entry(void *parameter)
-{
-  Button_Create("KEY1",
-                &u8g2_Button,
-                Read_u8g2b_Level,
-                PIN_LOW);
-  Button_Attach(&u8g2_Button, BUTTON_DOWM, Btn1_Dowm_CallBack);     // Click
-  Button_Attach(&u8g2_Button, BUTTON_DOUBLE, Btn1_Double_CallBack); // Double click
-
-  /* 程序区域 */
-  Get_Button_Event(&u8g2_Button);
-
-  while (1)
-  {
-    Button_Process(); // Need to call the button handler function periodically
-
-    rt_thread_mdelay(20);
   }
 }
 
 /* #endregion */
 rt_err_t button_u8g2_init(void)
 {
+  rt_err_t result;
+  /* 硬件初始化 */
   BSP_Init();
-  u8g2_thread_init();
+  /*视图初始化*/
+  u8g2.begin();
+  u8g2.setFontMode(0); // enable transparent mode, which is faster, 只要改一个字符就更新，所以快些
+                       /* OLED 抢占资源初始化 */
+  /* #region  操作 text 的互斥量 */
+  oled_mutex = rt_mutex_create("oled_mut", RT_IPC_FLAG_PRIO);
+  if (oled_mutex == RT_NULL)
+  {
+    rt_kprintf("create oled mutex failed.\n");
+    return -1;
+  }
+  /* #endregion */
+  /* #region  按键扫描线程 静态*/
   rt_thread_init(&btn_thread,
                  "btn_scan",
                  button_entry,
@@ -307,7 +274,52 @@ rt_err_t button_u8g2_init(void)
                  sizeof(btn_stack),
                  THREAD_PRIORITY - 4, THREAD_TIMESLICE);
   rt_thread_startup(&btn_thread);
-  u8g2.begin();
+  /* #endregion */
+  /* #region  按键信号控制oled线程 静态 */
+  rt_thread_init(&u8g2_ctrl_thread,
+                 "btn_ctrl",
+                 btn_ctrl_entry,
+                 RT_NULL,
+                 &u8g2_ctrl_stack[0],
+                 sizeof(u8g2_ctrl_stack),
+                 THREAD_PRIORITY - 4, THREAD_TIMESLICE);
+  rt_thread_startup(&u8g2_ctrl_thread);
+  /* #endregion */
+  /* #region 获取文字的永久静态线程 TODO 失败*/
+  result = rt_thread_init(&oled_text_thread, // TODO 无法创建
+                          "oled_text",
+                          u8g2_get_txt,
+                          RT_NULL,
+                          &txt_stack[0],
+                          sizeof(txt_stack),
+                          THREAD_PRIORITY - 3, THREAD_TIMESLICE + 10);
+  if (result != RT_NULL)
+  {
+    rt_thread_startup(&oled_text_thread);
+  }
+  else
+  {
+    rt_kprintf("创建oled_text失败\n");
+  }
+  /* #endregion */
+  /* #region 默认静态OLED的线程 动态 */
+  // 交互可以：蓝牙连接成功后再创建静态OLED线程和按键控制线程
+  //    rt_strncpy(text,"请连接蓝牙",128);
+  /*  */
+  oled_static_t = rt_thread_create("static_show",
+                                   u8g2_s_thread, RT_NULL,
+                                   THREAD_STACK_SIZE,
+                                   THREAD_PRIORITY - 3, THREAD_TIMESLICE);
+  if (oled_static_t != RT_NULL)
+  {
+    rt_thread_startup(oled_static_t);
+  }
+  else
+  {
+    rt_kprintf("创建静态OLED线程失败\n");
+  }
+  /* #endregion */
+
   return RT_EOK;
 }
 // static void oled_time(int argc,char *argv[])

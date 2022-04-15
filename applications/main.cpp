@@ -65,7 +65,7 @@ int main(void)
 
 /* 蓝牙通信功能 */
 #ifdef BLE
-    // BLE_init(0,NULL);
+    bluetooth_init();
 #endif
 
 /* 显示功能 */
@@ -127,7 +127,7 @@ static void ble2oled_test(int argc, char *argv[])
         rt_strncpy(rx_buffer, argv[1], 1024);
         if(rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
         {
-            // rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
+            rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
         }
     }
 }

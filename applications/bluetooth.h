@@ -10,7 +10,7 @@
 #ifndef APPLICATIONS_BLUETOOTH_H_
 #define APPLICATIONS_BLUETOOTH_H_
     /* BLE 开关 */
-    // #define BLE
+    #define BLE
 #ifdef BLE
 #ifdef __cplusplus
 extern "C" {
