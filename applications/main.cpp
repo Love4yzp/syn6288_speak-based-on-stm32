@@ -126,37 +126,37 @@ int main(void)
 /**
  * 状态：成功
  */
-static void ble2oled_test(int argc, char *argv[])
-{
-    char rx_buffer[1024];
+// static void ble2oled_test(int argc, char *argv[])
+// {
+//     char rx_buffer[1024];
 
-    if (argc == 2)
-    {
-        rt_strncpy(rx_buffer, argv[1], 1024);
-        if (rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
-        {
-            // rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
-        }
-    }
-}
-/* 导出到 msh 命令列表中 */
-MSH_CMD_EXPORT(ble2oled_test, test upload);
+//     if (argc == 2)
+//     {
+//         rt_strncpy(rx_buffer, argv[1], 1024);
+//         if (rt_mb_send(&ble_mb_oled, (rt_uint32_t)&rx_buffer) == RT_EOK)
+//         {
+//             // rt_kprintf("发给OLED邮箱成功\n");// 更改显示的TEXT
+//         }
+//     }
+// }
+// /* 导出到 msh 命令列表中 */
+// MSH_CMD_EXPORT(ble2oled_test, test upload);
 
 /**
  * 状态 成功
  */
-static void ble2syn_test(int argc, char *argv[])
-{
-    char rx_buffer[1024];
+// static void ble2syn_test(int argc, char *argv[])
+// {
+//     char rx_buffer[1024];
 
-    if (argc == 2)
-    {
-        rt_strncpy(rx_buffer, argv[1], 1024);
-        if (rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer) == RT_EOK)
-        {
-            // rt_kprintf("发给语音邮箱成功\n");
-        }
-    }
-}
-/* 导出到 msh 命令列表中 */
-MSH_CMD_EXPORT(ble2syn_test, syn upload);
+//     if (argc == 2)
+//     {
+//         rt_strncpy(rx_buffer, argv[1], 1024);
+//         if (rt_mb_send(&ble_mb_6288, (rt_uint32_t)&rx_buffer) == RT_EOK)
+//         {
+//             // rt_kprintf("发给语音邮箱成功\n");
+//         }
+//     }
+// }
+// /* 导出到 msh 命令列表中 */
+// MSH_CMD_EXPORT(ble2syn_test, syn upload);
