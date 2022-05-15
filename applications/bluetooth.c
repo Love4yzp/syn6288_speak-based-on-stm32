@@ -66,12 +66,13 @@ static void data_parsing(void)
             if(_data_[0]!='T' &&  strchr(_data_, '[')==NULL) // 传递的不是时间，也不是语音控制
             {
                 rt_mb_send(&ble_mb_6288, (rt_uint32_t)&_data_);
-                rt_mb_send(&ble_mb_oled, (rt_uint32_t)&_data_);
+                rt_mb_send(&ble_mb_oled, (rt_uint32_t)&_data_); // OLED 不显示空格后的
             }else if(_data_[0]=='T')// 传递的是时间
             {
                 rt_mb_send(&ble_mb_time, (rt_uint32_t)&_data_);
+                // rt_kprintf("%s\n",_data_+1);
             }else{
-                rt_mb_send(&ble_mb_6288, (rt_uint32_t)&_data_);
+                rt_mb_send(&ble_mb_6288, (rt_uint32_t)&_data_); // [v16] 调时间成功
             }
 
 
