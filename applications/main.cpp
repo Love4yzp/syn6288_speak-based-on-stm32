@@ -18,10 +18,11 @@
 // struct rt_semaphore ble_6288_sem; /* 蓝牙接收到数据后，syn6288打断语音 */
 struct rt_mailbox ble_mb_6288; // 发送给6288
 struct rt_mailbox ble_mb_oled; // OLED
+struct rt_mailbox ble_mb_time; // Time
 
-char mb_pool_6288[128];
-char mb_pool_oled[128];
-// char mb_str1[] = "this is another mail!";
+char mb_pool_6288[32];
+char mb_pool_oled[32];
+char mb_pool_time[32];
 /**
  * @brief 蓝牙到语音的邮箱
  * @TODO 成功
@@ -53,7 +54,16 @@ rt_err_t mailbox_init(void)
         return -1;
     }
 
-
+    result = rt_mb_init(&ble_mb_time,
+                        "mb_time",                /* 名称是 mbt */
+                        &mb_pool_time[0],         /* 邮箱用到的内存池是 mb_pool */
+                        sizeof(mb_pool_time) / 4, /* 邮箱中的邮件数目，因为一封邮件占 4 字节 */
+                        RT_IPC_FLAG_FIFO);        /* 采用 FIFO 方式进行线程等待 */
+    if (result != RT_EOK)
+    {
+        rt_kprintf("init timebox failed.\n");
+        return -1;
+    }
     return RT_EOK;
 }
 
@@ -81,10 +91,21 @@ int main(void)
     // LOG_D("Hello RT-Thread!");
 
     // 接收到蓝牙数据，发送个 6288
-
+// [v?] 音量0~16
+// [m?] 背景音乐音量
+// [t?] 语速
+// [x?] 提示音
+// [o?] 0:自然朗读
+// [y?] 号码1的读法 ，一、幺
+    char *synInitCMD_t = NULL;
+    char synInitCMD[] = "[v16][t3][y1][x1]msga[x0]"; //默认为16级音量，
+    utf82gbk(&synInitCMD_t, (void *)synInitCMD, strlen(synInitCMD));
+    SYN_FrameInfo(0, synInitCMD_t);
+    rt_free((void *)synInitCMD_t);
     while (1)
     {
-        char head[] = "[v3][m2][t3]";
+        // char head[] = "[v16][t3]"; //控制头
+        char head[] = ""; //控制头
         char *str;
         char *name = NULL;
         // /* 从邮箱中收取邮件 */
@@ -94,7 +115,7 @@ int main(void)
 
             utf82gbk(&name, (void *)head, strlen(head));
             SYN_FrameInfo(0, name);
-            rt_kprintf(" 8266收到:%s\t\n", name);
+            // rt_kprintf(" 8266收到:%s\n", str);
             rt_free((void *)name);
         }
     }

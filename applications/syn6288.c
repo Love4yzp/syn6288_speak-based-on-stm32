@@ -71,7 +71,7 @@ static void SYN6288_thread_entry(void *parameter) // 对外接口
         }
        /*  rt_device_write(serial, 0, &ch, 1); */
 
-        rt_kprintf("%x ",ch);//发送给电脑
+        rt_kprintf("%x ",ch);//发送给电脑 // 显示代码
     }
 }
 rt_err_t SYN6288_init(void)
